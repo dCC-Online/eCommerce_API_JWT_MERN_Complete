@@ -9,8 +9,10 @@ const users = require("./routes/user")
 
 const connectDb = require("./db/db");
 
-connectDb();
+const cors = require('cors');
 
+connectDb();
+app.use(cors());
 app.use(express.json());
 app.use("/api/product", product);
 app.use("/api/shoppingcart", shoppingcart);
