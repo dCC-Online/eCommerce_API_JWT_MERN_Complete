@@ -33,7 +33,6 @@ exports.updateProduct = async (id, body) => {
     let productToUpdate = await Product.findByIdAndUpdate(id, body, {
       new: true,
     });
-    await productToUpdate.save();
     return productToUpdate;
   } catch (error) {
     console.log(error);
@@ -42,7 +41,7 @@ exports.updateProduct = async (id, body) => {
 
 exports.deleteProduct = async (id) => {
   try {
-    let product = await Product.findByIdAndRemove(id);
+    let product = await Product.findByIdAndDelete(id);
     return product;
   } catch (error) {
     console.log(error);

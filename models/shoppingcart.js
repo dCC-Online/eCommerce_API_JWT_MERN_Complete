@@ -16,6 +16,7 @@ const validateShoppingCart = (data) => {
 
   return schema.validate(data);
 };
+
 module.exports = {
   ShoppingCart,
   validateShoppingCart,
