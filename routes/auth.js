@@ -1,44 +1,69 @@
 const express = require("express");
 const router = express.Router();
-const { User, validateLogin } = require ("../models/user");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const { User, validateUser, validateLogin } = require("../models/user");
 
-router.post("/", async (req, res) => {
-  try {
-    // Validate the incoming login data against the defined validation rules
-    // Function definition shown below
-    const { error } = validateLogin(req.body);
-    // If there's an error in validation, send a 400 Bad Request response
-    if (error) return res.status(400).send(error.details[0].message);
+router.post("/register", async (req, res) => {
+    try {
+        const { error } = validateUser(req.body);
+        if (error) {
+            return res.status(400).send("Invalid registration data.");
+        }
 
-    // Check if a user with the provided email exists in the database
-    let user = await User.findOne({ email: req.body.email });
+        let user = await User.findOne({ username: req.body.username });
+        if (user) {
+            return res.status(400).send("User already registered.");
+        }
 
-    // If no such user exists, send a 400 Bad Request response indicating an invalid email or password
-    if (!user) return res.status(400).send("Invalid email or password.");
+        const salt = await bcrypt.genSalt(10);
 
-    // Use bcrypt to compare the provided password with the hashed password stored in the database
-    const validPassword = await bcrypt.compare(
-      req.body.password, // User's provided password
-      user.password // Hashed password from the database
-    );
+        user = new User({
+            username: req.body.username,
+            email: req.body.email,
+            password: await bcrypt.hash(req.body.password, salt),
+        });
+        await user.save();
 
-    // If the passwords don't match, send a 400 Bad Request response indicating an invalid email or password
-    if (!validPassword)
-      return res.status(400).send("Invalid email or password.");
+        const token = user.generateAuthToken();
 
-    // If the passwords match, generate a JWT for the authenticated user
-    const token = jwt.sign(
-      { _id: user._id, name: user.name }, // Payload data for the JWT
-      process.env.JWT_SECRET // Secret key to sign the JWT
-    );
-
-    // Return the generated JWT as a response, which will often be used by the client for further authenticated requests
-    return res.send(token);
-  } catch (ex) {
-    // If there's any other exception during the process, send a 500 Internal Server Error response
-    return res.status(500).send(`Internal Server Error: ${ex}`);
-  }
+        res.status(201)
+            .header("x-auth-token", token)
+            .header("access-control-expose-headers", "x-auth-token")
+            .send({
+                _id: user._id,
+                username: user.username,
+                email: user.email,
+            });
+    } catch (error) {
+        res.status(500).send(`Internal Server Error ${error}`);
+    }
 });
+
+router.post("/login", async (req, res) => {
+    const { error } = validateLogin(req.body);
+    if (error) {
+        return res.status(400).send("Invalid login data.");
+    }
+
+    let user = await User.findOne({ username: req.body.username });
+    if (!user) {
+        return res.status(400).send("No user found with provided username.");
+    }
+
+    const validPassword = await bcrypt.compare(
+        req.body.password,
+        user.password
+    );
+    if (!validPassword) {
+        return res.status(400).send("Invalid Password.");
+    }
+
+    const token = user.generateAuthToken();
+
+    res.status(201)
+        .header("x-auth-token", token)
+        .header("access-control-expose-headers", "x-auth-token")
+        .send({ message: "Login successful." });
+});
+
 module.exports = router;
